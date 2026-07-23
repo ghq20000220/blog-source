@@ -8,28 +8,32 @@ tags:
 1. git安装
 
     - 官方地址：<https://git-scm.cn/install/windows>
-    - 安装后使用cmd或git bash输入`git --version`，输出版本，说明安装成功
+    - 安装后使用cmd或git bash输入`git -v`，输出版本，说明安装成功  
+    ![git version](./first-blog/git_v.JPG)
 
 2. nodejs安装
     - 官方地址：<https://nodejs.org/en/download/>
-    - `node -v`,显示版本说明成功安装
-
+    - `node -v`，显示版本说明成功安装  
+    ![node version](./first-blog/node_v.JPG)
 3. Hexo安装
     - `npm install hexo -g`
-    - `hexo -v`，测试安装状态
+    - `hexo -v`，测试安装状态  
+    ![Hexo version](./first-blog/hexo_v.JPG)
 
-4. 安装Hexo依赖
+4. 在blog仓库文件夹下安装Hexo依赖
     - `npm install --save hexo-deployer-git`
 
 # git ssh配置
 1. 生成ssh key
-    - `ssh-keygen -t rsa -C "邮件地址"` ，连续回车。生成的内容在id_rsa.pub中
+    - `ssh-keygen -t rsa -C "邮件地址"` ，连续回车。生成的内容在id_rsa.pub中  
 2. 将ssh key加入githu中
     - 使用`ssh -T git@github.com`测试ssh key的状态
+    ![ssh test](./first-blog/ssh_test.JPG)  
+
 3. 配置git user.name user.email
 ```
-$ git config --global user.name "liyunchen" #你的github用户名
-$ git config --global user.email "xxx@163.com" #填写你的github注册邮箱
+$ git config --global user.name "你的github用户名"
+$ git config --global user.email "你的github注册邮箱"
 ```
 # 初始化blog仓库
 1. 初始化blog目录
