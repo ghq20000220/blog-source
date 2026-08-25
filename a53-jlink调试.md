@@ -1,7 +1,10 @@
 ---
 title: a53-jlink调试
 date: 2026-07-16 17:10:52
-tags:
+tags: 
+    - jlink
+    - arm
+    - a53
 ---
 
 在win环境下实现jlink调试ARM Cortex-A53
