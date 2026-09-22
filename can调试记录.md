@@ -17,6 +17,7 @@ tags:
     9. 翻阅手册，查得F_PRESC_SJW_SEG参数配置不对，分频系数和seg1,seg2,swj配置错误
     10. 修改F_PRESC_SJW_SEG配置，再测soc can一个bit 4.011us，基本匹配
     11. 与模拟源连接后，soc接收时非满帧丢失数据，驱动中的代码bug，没有放入指定buffer，数据放错
+
 ```
     while(0 != ((uint8_t)(READ32(&can_ptr->RCTRL_TCTRL_TCMD_CFG_STA) >> REG32_BYTE3) & RSTAT))
     {
@@ -54,12 +55,19 @@ if(frame->data_len % len)
     SET_BITS(&can_ptr->RCTRL_TCTRL_TCMD_CFG_STA, TSNEXT << REG32_BYTE2);
 }
 ```
+    13. 用户反馈，非4字节整数倍，进行数据发送时，数据丢失
+    手册中明确描述，需要按照32bit进行访问，因此将发送操作tbuf的memcpy更改为write32
+    TBUF and ACF are implemented as true 32 bit wide memories. Therefore a write access to TBUF or ACF 
+    is only executed if it is performed as a full 32 bit word access (host_wr_b=0000b). Read accesses and 
+    write accesses to other memory locations are not restricted.  
 
+![地址对齐](./can调试记录/地址对齐.JPG)
 
 
 # 反思
     1. 应当及时向仿真同事确认速率问题
     后续：经过仿真确认，速率不对；修改驱动后再仿真，速率正确
+    2. 所有对寄存器的访问都要谨慎，尽量避免使用库进行操作，避免副作用
 
 # 其它问题
     1. soc can发数据，总线上没有波形，此时通过can寄存器可发现，出现bit错误的标志;

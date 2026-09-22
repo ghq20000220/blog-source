@@ -23,7 +23,7 @@ hide: false
 ![选项卡](./Eclipse-Embedded-C-C/debug_config.JPG)
 
 2. 各配置选项简要说明  
-    - MAIN  
+    - Main  
         1. Project：选择一个工程
         2. C/C++ Application：选择一个应用(xxx.elf);不选时可能会报错，无法启动debug，推荐选择
         3. 可以选择debug前自动编译，或者关闭自动编译
@@ -41,7 +41,6 @@ hide: false
 
 # Jlink自定义设备  
 自定义设备参考链接https://blog.baimochun.xyz/2026/08/14/JFlash-OpenFlashLoader/
-
 
 
 

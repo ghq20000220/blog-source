@@ -91,7 +91,24 @@ J-Flash是SEGGER推出的通过J-Link对Flash进行烧录的工具，内置多�
 1. 需要实现指定的函数功能
 2. 需要按照指定的代码布局进行链接
 3. 注意变量的类型，在变量类型不对时可能出现奇怪的问题
-```
+4. 尽量提高代码执行速度，比如使用o2进行编译（在使用o0编译的elf时，大量读取（1MB）会超时，o2编译的不会）
+
+# FlashOS.h
+```c
+#ifndef SEGGER_FLASH_OS_H
+#define SEGGER_FLASH_OS_H
+#include <stdint.h>
+
+#define ONCHIP     (1)             // On-chip Flash Memory
+
+#define MAX_NUM_SECTORS (512)      // Max. number of sectors, must not be modified.
+#define ALGO_VERSION    (0x0101)   // Algo version, must not be modified.
+
+struct SECTOR_INFO  {
+	uint32_t SectorSize;       // Sector Size in bytes
+	uint32_t SectorStartAddr;  // Start address of the sector area (relative to the "BaseAddr" of the flash)
+};
+
 struct FlashDevice  {
   uint16_t AlgoVer;
   uint8_t  Name[128];
@@ -105,4 +122,195 @@ struct FlashDevice  {
   uint32_t TimeoutErase;            // Timeout in milliseconds (ms) to erase one sector.
   struct SECTOR_INFO SectorInfo[MAX_NUM_SECTORS];       // 	This element is actually a list of different sector sizes present on target flash.Having a flash with uniform sectors will result in only SectorInfo[0] being used for sectorization information.
 };
+
+#endif
+```
+
+# flash_loader.h
+```c
+#ifndef SEG_FL_H
+#define SEG_FL_H
+#include "FlashOS.h"
+
+#define PrgCode  __attribute__ ((section ("PrgCode"), __used__))
+#define DevDescr __attribute__ ((section ("DevDscr"), __used__))
+
+int SEGGER_FL_Prepare(uint32_t PreparePara0, uint32_t PreparePara1, uint32_t PreparePara2);
+int SEGGER_FL_Restore(uint32_t RestorePara0, uint32_t RestorePara1, uint32_t RestorePara2);
+int SEGGER_FL_Program(uint32_t DestAddr, uint32_t NumBytes, uint8_t *pSrcBuff);
+int SEGGER_FL_Erase(uint32_t SectorAddr, uint32_t SectorIndex, uint32_t NumSectors);
+int SEGGER_FL_EraseChip(void);
+int SEGGER_FL_Read(uint32_t Addr, uint32_t NumBytes, uint8_t *pDestBuff);
+
+#endif
+```
+
+# flash_loader.c
+```c
+#include "flash_loader.h"
+#include "at25dq041.h"
+#include "soc_address_map.h"
+#include "soc_perpheral_struct.h"
+
+#define DEBUG_PRINTF(fmt, args...)
+#define DEBUG_DISPLAY(fmt, args...)
+#define DEBUG(fmt, args...)
+
+
+struct FlashDevice const FlashDevice DevDescr =  {
+  ALGO_VERSION,              // Algo version
+  "AT25DQ041", // Flash device name
+  0,                    // Flash device type
+  0x0,                // Flash base address
+  0x100000,                  // Total flash device size in Bytes
+  256,                       // Page Size (number of bytes that will be passed to ProgramPage(). May be multiple of min alignment in order to reduce overhead for calling ProgramPage multiple times
+  0,                         // Reserved, should be 0
+  0xFF,                      // Flash erased value
+  20000,                       // Program page timeout in ms
+  20000,                      // Erase sector timeout in ms
+  //
+  // Flash sector layout definition
+  //
+  {
+      {0x00001000, 0x0},   //
+      {0xFFFFFFFF, 0xFFFFFFFF},    // Indicates the end of the flash sector layout. Must be present.
+  }
+};
+
+
+
+int PrgCode SEGGER_FL_Prepare(uint32_t PreparePara0, uint32_t PreparePara1, uint32_t PreparePara2){
+    int ret_value = 0;
+
+    at25dq041_default_initial(SPI0_REGDEF);
+    at25dq041_global_unprotect(SPI0_REGDEF);
+    
+    return ret_value;
+};
+
+
+int PrgCode SEGGER_FL_Restore(uint32_t RestorePara0, uint32_t RestorePara1, uint32_t RestorePara2){
+
+    return 0;
+};
+
+
+int PrgCode SEGGER_FL_Program(uint32_t DestAddr, uint32_t NumBytes, uint8_t *pSrcBuff){
+    uint32_t addr=0;
+
+
+    if(DestAddr >= FlashDevice.BaseAddr){
+        addr = DestAddr - FlashDevice.BaseAddr;
+    }else{
+        addr = DestAddr;
+    }
+    
+    at25dq041_program(SPI0_REGDEF, addr, pSrcBuff, NumBytes);
+
+    return 0;
+};
+
+int PrgCode SEGGER_FL_Erase(uint32_t SectorAddr, uint32_t SectorIndex, uint32_t NumSectors){
+    uint32_t addr=0;
+
+    DEBUG("=>Erase call addr:0x%0X  index:%d sectors:%d bytes",SectorAddr,SectorIndex,NumSectors);
+
+    if(SectorAddr >= FlashDevice.BaseAddr){
+        addr = SectorAddr - FlashDevice.BaseAddr;
+    }
+
+    for(uint32_t i=SectorIndex; i<(SectorIndex+NumSectors); i++){
+        at25dq041_block_erase(SPI0_REGDEF, addr+(i*FlashDevice.SectorInfo->SectorSize), BLOCKSIZE_4K);
+    }
+    return 0;
+
+};
+
+int PrgCode SEGGER_FL_EraseChip(void){
+
+    DEBUG("=>Erase chip call");
+
+    at25dq041_chip_erase(SPI0_REGDEF);
+    return 0;
+
+};
+
+int PrgCode SEGGER_FL_Read(uint32_t Addr, uint32_t NumBytes, uint8_t *pDestBuff){
+    uint32_t addr=0;
+
+    DEBUG_PRINTF("SEGGER_FL_Read\r\n");
+    DEBUG_DISPLAY(Addr);
+    DEBUG_PRINTF("\r\n");
+    DEBUG_DISPLAY(NumBytes);
+    DEBUG_PRINTF("\r\n");
+
+    if(Addr >= FlashDevice.BaseAddr){
+        addr = Addr - FlashDevice.BaseAddr;
+    }
+
+    at25dq041_read_bytes(SPI0_REGDEF, addr, pDestBuff, NumBytes);
+
+    return NumBytes;
+}
+```
+
+# lscript.ld
+```ld
+
+/* Define stack and heap size in the system */
+_STACK_SIZE = DEFINED(_STACK_SIZE) ? _STACK_SIZE : 0x2000;
+_HEAP_SIZE = DEFINED(_HEAP_SIZE) ? _HEAP_SIZE : 0x2000;
+
+/*if used printf_ra, 256Byte is not enough*/
+_EL0_STACK_SIZE = 1024;	
+_EL1_STACK_SIZE = 1024;
+_EL2_STACK_SIZE = 1024;
+
+/* Define Memories in the system */
+MEMORY
+{
+   iram_m_address : ORIGIN = 0x0002000000, LENGTH = 0x0000100000
+}
+
+/* Specify the default entry point to the program */
+
+ENTRY(_boot)
+
+/* Define the sections, and where they are mapped in memory */
+
+SECTIONS
+{
+/* 必须放在开头 */
+PrgCode :
+{
+   . = ALIGN(4);
+   KEEP(*(PrgCode));
+   KEEP(*(PrgCode*));
+   . = ALIGN(4);
+} > iram_m_address
+
+/* 放在text，rodata后，data前 */
+/* Marks the end of the code + rodata region (functions, const data, ...) and the start of the data region (static + global variables) */
+PrgData :
+{
+    . = ALIGN(4);
+    KEEP(*(PrgData));
+    KEEP(*(PrgData*));
+    . = ALIGN(4);
+}
+
+
+/* 放在最后 */
+/* Marks the location of the <FlashDevice> structure variable and also the end of the loader. Must(!!!) be the very last section */
+DevDscr :
+{
+    . = ALIGN(4);
+    KEEP(*(DevDscr));
+    KEEP(*(DevDscr*));
+    . = ALIGN(4);
+} > iram_m_address
+
+}
+
+
 ```

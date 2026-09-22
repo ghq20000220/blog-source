@@ -5,111 +5,41 @@ hide: true
 
 # 核心数据结构
 
-```mermaid
-classDiagram
-
-    class plat_stmmacenet_data {
-        int interface;
-        phy_interface_t phy_interface;
-        struct device_node *phy_node;
-        struct device_node *phylink_node;
-        int max_speed;
-        int tx_fifo_size;
-        int rx_fifo_size;
-        int force_sf_dma_mode;
-        int maxmtu;
-        int multicast_filter_bins;
-        int unicast_filter_entries;
-        int has_xgmac;
-        int pmt;
-        bool tso_en;
-        struct stmmac_dma_cfg *dma_cfg;
-        ...
-    }
-
-    class stmmac_dma_cfg {
-        int pbl;
-        int txpbl;
-        int rxpbl;
-        bool pblx8;
-        int fixed_burst;
-        int mixed_burst;
-        bool aal;
-        bool eame;
-    }
+start_kernel
+    setup_arch
+        setup_machine_fdt
+            early_init_dt_scan
+                early_init_dt_scan_nodes
+                    early_init_dt_scan_memory
+                        early_init_dt_add_memory_arch
+                            memblock_add
 
 
-    class net_device {
-        const struct net_device_ops *netdev_ops;
-        const struct ethtool_ops *ethtool_ops;
-        ...
-        void *priv;
-    }
+mmap_mem
+    phys_mem_access_prot
+        pfn_valid
+            memblock_is_map_memory
+                memblock_search // 没有memory属性，就不在其中
 
-    class ethtool_ops {
-        u32	supported_coalesce_params;
 
-        void	(*get_drvinfo)(struct net_device *, struct ethtool_drvinfo *);
-        int	(*get_regs_len)(struct net_device *);
-        void	(*get_regs)(struct net_device *, struct ethtool_regs *, void *);
-        void	(*get_wol)(struct net_device *, struct ethtool_wolinfo *);
-        int	(*set_wol)(struct net_device *, struct ethtool_wolinfo *);
-    }
+```c
+pgprot_t phys_mem_access_prot(struct file *file, unsigned long pfn,
+			      unsigned long size, pgprot_t vma_prot)
+{
+	if (!pfn_valid(pfn))
+		return pgprot_noncached(vma_prot);
+	else if (file->f_flags & O_SYNC)
+		return pgprot_writecombine(vma_prot);
+	return vma_prot;
+}
+EXPORT_SYMBOL(phys_mem_access_prot);
 
-    class stmmac_priv {
-        struct plat_stmmacenet_data *plat;
-        struct mac_device_info *hw;
-    }
+bool __init_memblock memblock_is_map_memory(phys_addr_t addr)
+{
+	int i = memblock_search(&memblock.memory, addr);
 
-    class mac_device_info {
-        const struct stmmac_ops *mac;
-        const struct stmmac_desc_ops *desc;
-        const struct stmmac_dma_ops *dma;
-        const struct stmmac_mode_ops *mode;
-        const struct stmmac_hwtimestamp *ptp;
-        const struct stmmac_tc_ops *tc;
-        const struct stmmac_mmc_ops *mmc;
-        const struct mdio_xpcs_ops *xpcs;
-    }
-
-    class stmmac_hwif_entry {
-        bool gmac;
-        bool gmac4;
-        bool xgmac;
-        u32 min_id;
-        u32 dev_id;
-        const struct stmmac_regs_off regs;
-        const void *desc;
-        const void *dma;
-        const void *mac;
-        const void *hwtimestamp;
-        const void *mode;
-        const void *tc;
-        const void *mmc;
-        int (*setup)(struct stmmac_priv *priv);
-        int (*quirks)(struct stmmac_priv *priv);
-    }
-
-    class net_device_ops {
-        int (*ndo_init);
-        int (*ndo_open);
-        int (*ndo_stop);
-        netdev_tx_t (*ndo_start_xmit);
-        netdev_features_t (*ndo_features_check);
-    }
-
-    plat_stmmacenet_data --> stmmac_dma_cfg : dma_cfg
-
-    stmmac_priv --> plat_stmmacenet_data : plat
-    stmmac_priv --> mac_device_info : hw
-
-    net_device --> stmmac_priv : priv
-    net_device --> ethtool_ops : ethtool_ops
-    net_device --> net_device_ops : netdev_ops
-
-    mac_device_info --> stmmac_hwif_entry : mac
-    mac_device_info --> stmmac_hwif_entry : dma
-    mac_device_info --> stmmac_hwif_entry : desc
-
-        
+	if (i == -1)
+		return false;
+	return !memblock_is_nomap(&memblock.memory.regions[i]);
+}
 ```
