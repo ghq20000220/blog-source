@@ -23,6 +23,14 @@ git commit -m "commit msg"
 git push origin HEAD:refs/for/master
 git push origin HEAD:refs/for/beta
 ```
+
+## Git alias
+```
+git config --global alias.pushf 'push origin HEAD:refs/for/master'
+
+git pushf
+```
+
 # 撤销命令git restore
 ## 撤销index （git add）
 工作区的文件加入暂存区后，从暂存区撤回，回到工作区，文件修改保留
@@ -105,5 +113,6 @@ raco@ubuntu:/home/terra/gerrit_rep/test$
 ```
 git reset --soft HEAD~1
 ```
+
 
 
