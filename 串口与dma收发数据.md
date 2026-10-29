@@ -2,6 +2,8 @@
 title: 串口与dma收发数据
 date: 2026-10-12 11:28:34
 tags:
+    - uart
+    - dma
 ---
 
 # 环境

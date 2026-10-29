@@ -27,6 +27,27 @@ reserved-memory {
 };
 ```
 - device_type：设备树中device_type是memory属性的节点，都会被early_init_dt_scan_memory处理。通过memblock_add加入memblock.memory中
+
+```
+start_kernel
+    setup_arch
+        setup_machine_fdt
+            early_init_dt_scan
+                early_init_dt_scan_nodes
+                    of_scan_flat_dt(early_init_dt_scan_memory)
+                        early_init_dt_scan_memory
+                            early_init_dt_add_memory_arch
+                                memblock_add
+    
+        bootmem_init
+            sparse_init
+                memblocks_present
+                sparse_init_nid
+                    sparse_init_one_section(SECTION_IS_EARLY)
+                        
+```
+
+
 ```c
 int __init early_init_dt_scan_memory(unsigned long node, const char *uname,
 				     int depth, void *data)
